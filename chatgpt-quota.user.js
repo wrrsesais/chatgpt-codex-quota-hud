@@ -1,7 +1,8 @@
 // ==UserScript==
 // @name         ChatGPT 额度与 Reset 次数悬浮窗
 // @namespace    local.chatgpt.quota
-// @version      2.5.1
+// @version      2.5.2
+// @license      MIT
 // @description  在悬浮窗查看额度、恢复时间和可用 Reset 次数；支持自动刷新、拖动及平滑折叠。
 // @author       wrrsesais
 // @homepageURL  https://github.com/wrrsesais/chatgpt-codex-quota-hud
@@ -15,13 +16,37 @@
 // @noframes
 // ==/UserScript==
 
+/*
+MIT License
+
+Copyright (c) 2026 wrrsesais
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
 
 (() => {
   'use strict';
   if (window.top !== window.self || window.__localQuotaHUD) return;
   window.__localQuotaHUD = true;
 
-  const VERSION = '2.5.1';
+  const VERSION = '2.5.2';
   const STORE = 'local-quota-hud-v2', LEGACY_STORE = 'local-quota-hud-v1';
   const ENDPOINT_STORE = STORE + '-endpoints';
   const DEFAULT_REFRESH_SECONDS = 180, MIN_REFRESH_SECONDS = 30, MAX_REFRESH_SECONDS = 3600;
