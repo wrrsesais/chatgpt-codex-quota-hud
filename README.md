@@ -1,8 +1,8 @@
-# ChatGPT 额度与 Reset 次数悬浮窗
+# ChatGPT/Codex 额度悬浮窗
 
 在 ChatGPT/Codex 网页右下角查看 5h 额度、周额度、恢复时间和可用 Reset 次数。支持拖动、平滑展开/折叠，以及自定义自动刷新间隔。
 
-**[安装最新脚本](https://raw.githubusercontent.com/wrrsesais/chatgpt-quota-hud/main/chatgpt-quota.user.js)** · [反馈问题](https://github.com/wrrsesais/chatgpt-quota-hud/issues) · [更新记录](CHANGELOG.md)
+**[安装最新脚本](https://raw.githubusercontent.com/wrrsesais/chatgpt-codex-quota-hud/main/chatgpt-quota.user.js)** · [反馈问题](https://github.com/wrrsesais/chatgpt-codex-quota-hud/issues) · [更新记录](CHANGELOG.md)
 
 ![折叠后的额度悬浮窗，截图使用演示数据](quota-collapsed.png)
 
@@ -57,4 +57,4 @@
 
 ---
 
-**English:** An unofficial Chinese-language userscript that displays quota percentages, reset times and available Reset counts on `chatgpt.com`. Open the official usage page once to discover supported data sources. The default polling interval is three minutes; it can be customized in the floating panel.
+**English — ChatGPT/Codex Quota HUD:** An unofficial Chinese-language userscript that displays quota percentages, reset times and available Reset counts on `chatgpt.com`. Open the official usage page once to discover supported data sources. The default polling interval is three minutes; it can be customized in the floating panel.

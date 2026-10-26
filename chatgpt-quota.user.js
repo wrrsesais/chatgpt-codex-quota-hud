@@ -4,10 +4,10 @@
 // @version      2.5.1
 // @description  在悬浮窗查看额度、恢复时间和可用 Reset 次数；支持自动刷新、拖动及平滑折叠。
 // @author       wrrsesais
-// @homepageURL  https://github.com/wrrsesais/chatgpt-quota-hud
-// @supportURL   https://github.com/wrrsesais/chatgpt-quota-hud/issues
-// @downloadURL  https://raw.githubusercontent.com/wrrsesais/chatgpt-quota-hud/main/chatgpt-quota.user.js
-// @updateURL    https://raw.githubusercontent.com/wrrsesais/chatgpt-quota-hud/main/chatgpt-quota.user.js
+// @homepageURL  https://github.com/wrrsesais/chatgpt-codex-quota-hud
+// @supportURL   https://github.com/wrrsesais/chatgpt-codex-quota-hud/issues
+// @downloadURL  https://raw.githubusercontent.com/wrrsesais/chatgpt-codex-quota-hud/main/chatgpt-quota.user.js
+// @updateURL    https://raw.githubusercontent.com/wrrsesais/chatgpt-codex-quota-hud/main/chatgpt-quota.user.js
 // @match        https://chatgpt.com/*
 // @run-at       document-start
 // @grant        none
