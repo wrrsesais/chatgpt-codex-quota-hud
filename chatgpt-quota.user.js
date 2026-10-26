@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT 额度与 Reset 次数悬浮窗
 // @namespace    local.chatgpt.quota
-// @version      2.5.4
+// @version      2.5.5
 // @license      MIT
 // @description  在悬浮窗查看额度、恢复时间和可用 Reset 次数；支持自动刷新、拖动及平滑折叠。
 // @author       wrrsesais
@@ -46,7 +46,7 @@ SOFTWARE.
   if (window.top !== window.self || window.__localQuotaHUD) return;
   window.__localQuotaHUD = true;
 
-  const VERSION = '2.5.4';
+  const VERSION = '2.5.5';
   const STORE = 'local-quota-hud-v2', LEGACY_STORE = 'local-quota-hud-v1';
   const ENDPOINT_STORE = STORE + '-endpoints';
   const DEFAULT_REFRESH_SECONDS = 180, MIN_REFRESH_SECONDS = 30, MAX_REFRESH_SECONDS = 3600;
@@ -137,7 +137,7 @@ SOFTWARE.
   function applyRefreshPreferences(current) {
     if(validRefreshSeconds(current.refreshSeconds)&&saved.refreshSeconds!==current.refreshSeconds) {
       saved.refreshSeconds=current.refreshSeconds;
-      for(const entry of endpoints.values())if(!entry.failures)entry.nextAt=entry.lastRequest+refreshInterval();
+      for(const entry of endpoints.values())if(!entry.failures)entry.nextAt=entry.refreshAnchor+refreshInterval();
     }
     if(typeof current.autoRefresh==='boolean')saved.autoRefresh=current.autoRefresh;
     if(!saved.autoRefresh)cancelRun();
@@ -183,7 +183,7 @@ SOFTWARE.
       if(!paths.length)return;
       scope=account;
       for(const p of paths) {
-        endpoints.set(usageURL(p.path),{fields:[],failures:0,error:'',nextAt:0,lastRequest:0,seq:0,limited:false,
+        endpoints.set(usageURL(p.path),{fields:[],failures:0,error:'',nextAt:0,lastRequest:0,refreshAnchor:0,seq:0,limited:false,
           binding:{epoch,account,principal,replay:true,credentials:['omit','same-origin','include'].includes(p.credentials)?p.credentials:'same-origin'}});
       }
       notice=saved.autoRefresh?'已恢复本标签页的接口，正在确认当前额度…':'已恢复接口；自动刷新已暂停，可点刷新确认额度';scheduleRender();refresh();
@@ -366,10 +366,18 @@ SOFTWARE.
     if (!entry && endpoints.size >= MAX_ENDPOINTS) {
       notice = '已识别 6 个接口；如有重复或遗漏，可在 ⋯ 中清除识别后重试'; scheduleRender(); return false;
     }
-    if (!entry) { entry = { failures: 0, error: '', nextAt: 0, lastRequest: 0 }; endpoints.set(url, entry); }
+    if (!entry) {
+      // Discovery starts the first interval; later page responses only update data.
+      const discoveredAt = Date.now();
+      entry = { failures: 0, error: '', refreshAnchor: discoveredAt,
+        nextAt: discoveredAt + refreshInterval(), lastRequest: 0 };
+      endpoints.set(url, entry);
+    }
     Object.assign(entry, { binding: { ...binding }, seq: binding.seq, fields: result.fields,
-      failures: 0, error: '', nextAt: Date.now() + refreshInterval(), lastRequest: binding.sentAt,
+      lastRequest: Math.max(entry.lastRequest, binding.sentAt),
       limited: result.budgetExhausted || result.fields.length === MAX_FIELDS });
+    // A passive success must not remove an active request's retry/backoff state.
+    if (!observed) { entry.failures = 0; entry.error = ''; }
     if (observed) {
       authBlocked = false; notice = binding.replay ? '' : '仅被动显示：未识别可重放的 Bearer 鉴权';
     }
@@ -486,13 +494,14 @@ SOFTWARE.
         const timeout = setTimeout(() => controller.abort(), 15000);
         const binding = { ...entry.binding, seq: ++sequence, sentAt: Date.now() };
         entry.lastRequest = binding.sentAt; lastScriptRequestAt = binding.sentAt;
+        entry.refreshAnchor = binding.sentAt;
+        entry.nextAt = binding.sentAt + refreshInterval();
         const headers = { Authorization: task.token, Accept: 'application/json' };
         if (binding.account) headers['ChatGPT-Account-ID'] = binding.account;
         try {
           const res = await nativeFetch.call(window, url, { method: 'GET', credentials: binding.credentials, cache: 'no-store',
             headers, redirect: 'error', signal: controller.signal });
           if (run !== task || epoch !== task.epoch) break;
-          if (binding.seq < entry.seq) continue;
           if (res.status === 401 || res.status === 403) {
             forgetEndpoints();
             epoch++; cancelRun(); endpoints.clear(); latestSeq.clear(); snapshot = ''; snapshotAt = 0; domFields = []; bearer = '';
@@ -507,14 +516,15 @@ SOFTWARE.
           }
           if (!res.ok) throw new Error('HTTP ' + res.status);
           if (!/json/i.test(res.headers.get('content-type') || '')) {
+            if (binding.seq < entry.seq) continue;
             endpoints.delete(url); rememberEndpoints(); notice = '一个额度接口返回了非 JSON 内容，请重新打开额度页'; continue;
           }
           const data = await readJSON(res);
           if (run !== task || epoch !== task.epoch) break;
+          if (binding.seq < entry.seq) { entry.failures = 0; entry.error = ''; continue; }
           accept(url, data, binding, false);
         } catch (e) {
           if (run !== task || epoch !== task.epoch) break;
-          if (binding.seq < entry.seq) continue;
           entry.failures = Math.min(entry.failures + 1, 10);
           entry.nextAt = Date.now() + refreshInterval() * Math.min(8, 2 ** (entry.failures - 1));
           entry.error = e?.name === 'AbortError' ? '读取超时' : /^HTTP \d+$/.test(e?.message || '') ? '读取失败（' + e.message + '）' : '网络或数据解析失败';
