@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT 额度与 Reset 次数悬浮窗
 // @namespace    local.chatgpt.quota
-// @version      2.5.2
+// @version      2.5.3
 // @license      MIT
 // @description  在悬浮窗查看额度、恢复时间和可用 Reset 次数；支持自动刷新、拖动及平滑折叠。
 // @author       wrrsesais
@@ -46,7 +46,7 @@ SOFTWARE.
   if (window.top !== window.self || window.__localQuotaHUD) return;
   window.__localQuotaHUD = true;
 
-  const VERSION = '2.5.2';
+  const VERSION = '2.5.3';
   const STORE = 'local-quota-hud-v2', LEGACY_STORE = 'local-quota-hud-v1';
   const ENDPOINT_STORE = STORE + '-endpoints';
   const DEFAULT_REFRESH_SECONDS = 180, MIN_REFRESH_SECONDS = 30, MAX_REFRESH_SECONDS = 3600;
@@ -86,7 +86,7 @@ SOFTWARE.
   const schemaPath = p => p.map(schemaPart).join('.');
   let saved = readStore();
   let principal = '', scope = null, bearer = '', epoch = 0, sequence = 0, run = null;
-  let retryNotBefore = 0, authBlocked = false, notice = '';
+  let retryNotBefore = 0, authBlocked = false, notice = '', lastScriptRequestAt = 0;
   let snapshot = '', snapshotAt = 0, domFields = [], lastDOMRoute = location.href;
   let host, shadow, body, dataBox, footer, excerpt, excerptSummary, excerptText, emptyHint, cardHint, overflowHint;
   let pauseButton, collapseButton, toolsPanel, sizeObserver, menuOpen = false, renderedSignature = '', rowRefs = [];
@@ -96,8 +96,8 @@ SOFTWARE.
   let cardElement, surfaceElement, morph = null, restoreTask = null;
   const dialogObservers = new Map();
 
-  function readStore() {
-    const result = { autoRefresh: true, collapsed: false, refreshSeconds: DEFAULT_REFRESH_SECONDS };
+  function readStore(fallback = {}) {
+    const result = { autoRefresh: true, collapsed: false, refreshSeconds: DEFAULT_REFRESH_SECONDS, ...fallback };
     const read = key => {
       try {
         const raw = JSON.parse(localStorage.getItem(key) || '{}');
@@ -113,10 +113,13 @@ SOFTWARE.
     try { localStorage.removeItem(LEGACY_STORE); } catch { /* storage unavailable */ }
     return result;
   }
-  function writeStore() {
-    const clean = { autoRefresh: saved.autoRefresh, collapsed, refreshSeconds: saved.refreshSeconds };
+  function writeStore(preferences = {}) {
+    // A tab changing its layout must not write stale refresh preferences back.
+    const current = readStore(saved);
+    const clean = { autoRefresh: current.autoRefresh, collapsed, refreshSeconds: current.refreshSeconds, ...preferences };
     if (saved.position && finite(saved.position.x) && finite(saved.position.y)) clean.position = saved.position;
     try { localStorage.setItem(STORE, JSON.stringify(clean)); } catch { /* storage unavailable */ }
+    applyRefreshPreferences(clean);
   }
   function validRefreshSeconds(value) {
     return Number.isInteger(value)&&value>=MIN_REFRESH_SECONDS&&value<=MAX_REFRESH_SECONDS;
@@ -129,9 +132,21 @@ SOFTWARE.
   }
   function setRefreshInterval(seconds) {
     if(!validRefreshSeconds(seconds))return false;
-    saved.refreshSeconds=seconds;
-    for(const entry of endpoints.values())if(!entry.failures)entry.nextAt=entry.lastRequest+refreshInterval();
-    writeStore();notice='自动刷新间隔已设为 '+intervalText();scheduleRender();return true;
+    writeStore({refreshSeconds:seconds});notice='';scheduleRender();return true;
+  }
+  function applyRefreshPreferences(current) {
+    if(validRefreshSeconds(current.refreshSeconds)&&saved.refreshSeconds!==current.refreshSeconds) {
+      saved.refreshSeconds=current.refreshSeconds;
+      for(const entry of endpoints.values())if(!entry.failures)entry.nextAt=entry.lastRequest+refreshInterval();
+    }
+    if(typeof current.autoRefresh==='boolean')saved.autoRefresh=current.autoRefresh;
+    if(!saved.autoRefresh)cancelRun();
+    const select=shadow?.querySelector('#quota-refresh-preset');
+    if(!select)return;
+    select.value=[60,180,300,600].includes(saved.refreshSeconds)?String(saved.refreshSeconds):'custom';
+    const custom=select.value==='custom',form=shadow.querySelector('.custom-interval');
+    form.hidden=!custom;shadow.querySelector('.interval-hint').hidden=!custom;
+    form.querySelector('input').value=String(saved.refreshSeconds/60);
   }
   function forgetEndpoints() {
     try { sessionStorage.removeItem(ENDPOINT_STORE); } catch { /* storage unavailable */ }
@@ -208,7 +223,7 @@ SOFTWARE.
     restoreTask=null;
     principal = nextPrincipal; scope = nextScope; bearer = '';
     endpoints.clear(); latestSeq.clear(); shapes.clear(); snapshot = ''; snapshotAt = 0; domFields = [];
-    retryNotBefore = 0; authBlocked = false; notice = message;
+    retryNotBefore = 0; authBlocked = false; notice = message; lastScriptRequestAt = 0;
     scheduleRender();
   }
   // Account-less quota requests use an explicit default scope. Generic
@@ -355,6 +370,7 @@ SOFTWARE.
     Object.assign(entry, { binding: { ...binding }, seq: binding.seq, fields: result.fields,
       failures: 0, error: '', nextAt: Date.now() + refreshInterval(), lastRequest: binding.sentAt,
       limited: result.budgetExhausted || result.fields.length === MAX_FIELDS });
+    for(const field of entry.fields)field.receivedBy=observed?'website':'script';
     if (observed) {
       authBlocked = false; notice = binding.replay ? '' : '仅被动显示：未识别可重放的 Bearer 鉴权';
     }
@@ -470,7 +486,7 @@ SOFTWARE.
         const controller = new AbortController(); controllers.add(controller);
         const timeout = setTimeout(() => controller.abort(), 15000);
         const binding = { ...entry.binding, seq: ++sequence, sentAt: Date.now() };
-        entry.lastRequest = binding.sentAt;
+        entry.lastRequest = binding.sentAt; lastScriptRequestAt = binding.sentAt;
         const headers = { Authorization: task.token, Accept: 'application/json' };
         if (binding.account) headers['ChatGPT-Account-ID'] = binding.account;
         try {
@@ -481,7 +497,7 @@ SOFTWARE.
           if (res.status === 401 || res.status === 403) {
             forgetEndpoints();
             epoch++; cancelRun(); endpoints.clear(); latestSeq.clear(); snapshot = ''; snapshotAt = 0; domFields = []; bearer = '';
-            authBlocked = true; notice = '登录或访问校验已变化，请重新打开额度页；必要时刷新网页'; break;
+            authBlocked = true; lastScriptRequestAt = 0; notice = '登录或访问校验已变化，请重新打开额度页；必要时刷新网页'; break;
           }
           if (res.status === 404 || res.status === 405) {
             endpoints.delete(url); rememberEndpoints(); notice = '一个额度接口已失效，请重新打开额度页'; continue;
@@ -746,9 +762,12 @@ SOFTWARE.
     if (limitedNow) { state = 'warning'; label = '稍后重试'; }
     if (authBlocked) { state = 'warning'; label = '需要重新识别'; }
     statusLabel.textContent = label; host.dataset.state = state;
-    let text = run ? '正在同步额度…' : at ? (entries.every(e=>e.dom)?'页面读取于 ':'更新于 ') + ago(at) : '打开额度页，即可开始识别';
+    const origins=new Set(fields.map(f=>f.source==='page'?'page':f.receivedBy||'api'));
+    const sourceLabel=origins.size!==1?'最早数据接收于 ':origins.has('page')?'页面内容读取于 ':origins.has('website')?'网站响应于 ':origins.has('script')?'脚本响应于 ':'接口数据接收于 ';
+    let text = run ? '正在同步额度…' : at ? sourceLabel + ago(at) : '打开额度页，即可开始识别';
     if (!saved.autoRefresh) text += ' · 自动更新已暂停';
-    else if (at && replay) text += ' · 约每 '+intervalText()+' 刷新';
+    else if (at && replay) text += ' · 脚本间隔 '+intervalText();
+    if(at&&replay)text+=' · '+(lastScriptRequestAt?'上次主动请求 '+ago(lastScriptRequestAt):'本页尚未主动请求');
     if(entries.some(e=>e.dom))text+=' · 含页面读取数据';
     if (stale) text = '部分数据已过期 · ' + text;
     if (errors.length) text = errors.length + ' 个接口异常（' + errors[0].error + '），其余接口独立刷新';
@@ -875,10 +894,10 @@ SOFTWARE.
     // newly parsed fields into a previous panel's values.
     domFields=[...next.values()].map(field=>{
       const old=domFields.find(f=>f.id===field.id&&f.text===field.text);
-      return old&&Date.now()-old.at<30000?old:field;
+      return old||field;
     });
     const text=texts.join('\n\n').slice(0,3500);
-    if(snapshot!==text||Date.now()-snapshotAt>30000){snapshot=text;snapshotAt=Date.now();}
+    if(snapshot!==text){snapshot=text;snapshotAt=Date.now();}
     scheduleRender();
   }
   const isStale = field => Date.now()-field.at>staleAfter();
@@ -1050,7 +1069,7 @@ SOFTWARE.
     const positionButton = button('重置位置', () => { delete saved.position; host.style.left = ''; host.style.top = ''; host.style.right = '18px'; host.style.bottom = '52px'; menuOpen = false; writeStore(); render(); }, '恢复右下角位置'); positionButton.prepend(icon('position'));
     actions.append(downloadButton, clearButton, positionButton);
     tools.id='local-quota-tools';tools.append(toolsSummary,refreshSettings(),actions); tools.hidden = true; tools.open = true;
-    pauseButton = iconButton('pause', () => { saved.autoRefresh = !saved.autoRefresh; notice = ''; if (!saved.autoRefresh) cancelRun(); writeStore(); render(); if (saved.autoRefresh) refresh(); }, '暂停自动刷新');
+    pauseButton = iconButton('pause', () => { writeStore({autoRefresh:!saved.autoRefresh}); notice = ''; render(); if (saved.autoRefresh) refresh(); }, '暂停自动刷新');
     collapseButton = iconButton('minus', toggleCollapsed, '收起额度详情');
     refreshButton = iconButton('refresh', () => refresh(true), '刷新已识别的额度');
     moreButton = iconButton('more', () => { menuOpen = !menuOpen; render(); clampPosition(); }, '更多操作');
@@ -1137,6 +1156,12 @@ SOFTWARE.
     rootObserver.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['role', 'open'] });
     setInterval(() => { if (!document.hidden) { mount(); if(location.href!==lastDOMRoute){lastDOMRoute=location.href;discoverDialogs();} if(usageRoute())captureDOM(); render(); refresh(); } }, 15000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) { discoverDialogs(); render(); refresh(); } });
+    window.addEventListener('storage', event => {
+      if(event.storageArea!==localStorage||(event.key!==STORE&&event.key!==null))return;
+      const wasPaused=!saved.autoRefresh;
+      applyRefreshPreferences(readStore());notice='';scheduleRender();
+      if(wasPaused&&saved.autoRefresh)refresh();
+    });
     window.addEventListener('online', () => { notice = ''; refresh(); scheduleRender(); });
     window.addEventListener('offline', () => { notice = '网络离线，显示上次识别的数据'; scheduleRender(); });
     window.addEventListener('resize', () => {finishMorph();clampPosition();});
