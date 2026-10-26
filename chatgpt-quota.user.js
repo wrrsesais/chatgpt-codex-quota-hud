@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT 额度与 Reset 次数悬浮窗
 // @namespace    local.chatgpt.quota
-// @version      2.5.5
+// @version      2.5.6
 // @license      MIT
 // @description  在悬浮窗查看额度、恢复时间和可用 Reset 次数；支持自动刷新、拖动及平滑折叠。
 // @author       wrrsesais
@@ -46,7 +46,7 @@ SOFTWARE.
   if (window.top !== window.self || window.__localQuotaHUD) return;
   window.__localQuotaHUD = true;
 
-  const VERSION = '2.5.5';
+  const VERSION = '2.5.6';
   const STORE = 'local-quota-hud-v2', LEGACY_STORE = 'local-quota-hud-v1';
   const ENDPOINT_STORE = STORE + '-endpoints';
   const DEFAULT_REFRESH_SECONDS = 180, MIN_REFRESH_SECONDS = 30, MAX_REFRESH_SECONDS = 3600;
@@ -777,8 +777,9 @@ SOFTWARE.
     if (notice) text = notice;
     if (limitedNow) text = '请求限流，' + Math.ceil((retryNotBefore - Date.now()) / 1000) + ' 秒后可重试';
     footerText.textContent = text;
-    dockLabel.textContent=run?'请求中':!saved.autoRefresh?'已暂停':lastScriptRequestAt?ago(lastScriptRequestAt):'未主动请求';
-    dockLabel.parentElement.title=text;
+    dockLabel.textContent=authBlocked?'需重新识别':limitedNow?'请求限流':run?'请求中':!navigator.onLine?'网络离线':!saved.autoRefresh?'已暂停':errors.length?'更新异常':stale?'数据待更新':!fields.length?'等待识别':'';
+    dockLabel.parentElement.hidden=!dockLabel.textContent;
+    dockLabel.parentElement.title=collapsed?(notice||label):text;
   }
 
   // DOM fallback stays inside a selected usage panel or the dedicated usage
