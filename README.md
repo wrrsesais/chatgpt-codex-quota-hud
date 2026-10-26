@@ -4,7 +4,9 @@
 
 **[安装最新脚本](https://raw.githubusercontent.com/wrrsesais/chatgpt-codex-quota-hud/main/chatgpt-quota.user.js)** · [反馈问题](https://github.com/wrrsesais/chatgpt-codex-quota-hud/issues) · [更新记录](CHANGELOG.md)
 
-![折叠后的额度悬浮窗，截图使用演示数据](quota-collapsed.png)
+![额度悬浮窗动态演示：向上展开和折叠，并展示绿色、黄色、红色剩余额度](quota-demo.gif)
+
+*演示数据：绿色（高于 30%）、黄色（10%–30%）、红色（低于 10%）。详情向上展开，底部按钮保持原位。* [查看静态预览](quota-demo-poster.png)
 
 ## 安装和使用
 
@@ -48,7 +50,9 @@
 ## 文件
 
 - `chatgpt-quota.user.js`：可直接安装的完整脚本。
-- `quota-collapsed.png`：使用演示数据的界面截图。
+- `quota-demo.gif`：使用演示数据展示展开、折叠和三种额度颜色。
+- `quota-demo-poster.png`：动图的静态预览。
+- `quota-collapsed.png`：折叠后的界面截图。
 - `CHANGELOG.md`：版本记录。
 
 ## 许可证
