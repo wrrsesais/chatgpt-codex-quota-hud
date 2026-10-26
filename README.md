@@ -2,7 +2,7 @@
 
 在 ChatGPT/Codex 网页右下角查看 5h 额度、周额度、恢复时间和可用 Reset 次数。支持拖动、平滑展开/折叠，以及自定义自动刷新间隔。
 
-**[安装最新脚本](https://raw.githubusercontent.com/wrrsesais/chatgpt-codex-quota-hud/main/chatgpt-quota.user.js)** · [反馈问题](https://github.com/wrrsesais/chatgpt-codex-quota-hud/issues) · [更新记录](CHANGELOG.md)
+**[Greasy Fork 安装](https://greasyfork.org/zh-CN/scripts/602370)** · [GitHub 版安装／更新](https://raw.githubusercontent.com/wrrsesais/chatgpt-codex-quota-hud/main/chatgpt-quota.user.js) · [反馈问题](https://github.com/wrrsesais/chatgpt-codex-quota-hud/issues) · [更新记录](CHANGELOG.md)
 
 ![额度悬浮窗动态演示：向上展开和折叠，并展示绿色、黄色、红色剩余额度](quota-demo.gif)
 
@@ -11,11 +11,11 @@
 ## 安装和使用
 
 1. 安装支持页面上下文注入的用户脚本管理器，例如 Tampermonkey。
-2. 点击上面的安装链接，确认安装脚本。
+2. 打开上面的 Greasy Fork 页面，点击“安装此脚本”；已安装 GitHub 版的用户也可通过原 GitHub 链接更新。
 3. 刷新 ChatGPT 网页，打开一次官方额度页：<https://chatgpt.com/settings/usage?tab=overview>。
 4. 等待识别完成，即可在悬浮窗查看数据。点击 `− / ＋` 收起或展开，拖动标题或底部空白区域可移动位置。
 
-已有旧版时，请更新原脚本条目，避免同时启用多个版本。界面为中文，仅在 `https://chatgpt.com/*` 运行，不用于桌面端、CLI 或 API 计费控制台。
+已有旧版时，请更新原脚本条目，避免同时启用多个版本。GitHub 兼容版和 GF 版保留各自的安装标识，只需启用其中一个。界面为中文，仅在 `https://chatgpt.com/*` 运行，不用于桌面端、CLI 或 API 计费控制台。
 
 ## 功能
 
@@ -49,11 +49,19 @@
 
 ## 文件
 
-- `chatgpt-quota.user.js`：可直接安装的完整脚本。
+- `chatgpt-quota.user.js`：GitHub 兼容版完整脚本，保留原有安装标识。
+- `chatgpt-codex-quota.greasyfork.user.js`：Greasy Fork 的脚本同步源，保留 GF 版安装标识。
+- `greasyfork-description.md`：Greasy Fork 的中文附加说明同步源。
 - `quota-demo.gif`：使用演示数据展示展开、折叠和三种额度颜色。
 - `quota-demo-poster.png`：动图的静态预览。
 - `quota-collapsed.png`：折叠后的界面截图。
 - `CHANGELOG.md`：版本记录。
+
+## 发布与同步
+
+Greasy Fork 从本仓库 `main` 分支的 `chatgpt-codex-quota.greasyfork.user.js` 定期自动拉取代码，从 `greasyfork-description.md` 拉取中文说明。同步方向为 GitHub → Greasy Fork；图片附件仍在 GF 管理。
+
+发布功能更新时，请保持两个 `.user.js` 文件的运行逻辑一致，同时提高 `@version` 和脚本内的 `VERSION`；保留各自的 `@name`、`@namespace` 及更新地址。GF 版的脚本标识不应随意变动，以免影响已有安装。只修改 README、图片或其他文件不会改变 GF 脚本。
 
 ## 许可证
 
