@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT 额度与 Reset 次数悬浮窗
 // @namespace    local.chatgpt.quota
-// @version      2.5.3
+// @version      2.5.4
 // @license      MIT
 // @description  在悬浮窗查看额度、恢复时间和可用 Reset 次数；支持自动刷新、拖动及平滑折叠。
 // @author       wrrsesais
@@ -46,7 +46,7 @@ SOFTWARE.
   if (window.top !== window.self || window.__localQuotaHUD) return;
   window.__localQuotaHUD = true;
 
-  const VERSION = '2.5.3';
+  const VERSION = '2.5.4';
   const STORE = 'local-quota-hud-v2', LEGACY_STORE = 'local-quota-hud-v1';
   const ENDPOINT_STORE = STORE + '-endpoints';
   const DEFAULT_REFRESH_SECONDS = 180, MIN_REFRESH_SECONDS = 30, MAX_REFRESH_SECONDS = 3600;
@@ -370,7 +370,6 @@ SOFTWARE.
     Object.assign(entry, { binding: { ...binding }, seq: binding.seq, fields: result.fields,
       failures: 0, error: '', nextAt: Date.now() + refreshInterval(), lastRequest: binding.sentAt,
       limited: result.budgetExhausted || result.fields.length === MAX_FIELDS });
-    for(const field of entry.fields)field.receivedBy=observed?'website':'script';
     if (observed) {
       authBlocked = false; notice = binding.replay ? '' : '仅被动显示：未识别可重放的 Bearer 鉴权';
     }
@@ -750,7 +749,6 @@ SOFTWARE.
     excerpt.hidden = !snapshot; excerptAge.textContent = ago(snapshotAt);
     if (excerptText.textContent !== snapshot) excerptText.textContent = snapshot;
     const errors = [...endpoints.values()].filter(e => e.error), replay = [...endpoints.values()].some(e => e.binding.replay);
-    const at = fields.length ? Math.min(...fields.map(f => f.at)) : 0;
     const stale = fields.some(isStale), limitedNow = Date.now() < retryNotBefore;
     let state = 'idle', label = '等待识别';
     if (fields.length) { state = 'live'; label = replay ? '自动更新' : '被动显示'; }
@@ -762,20 +760,14 @@ SOFTWARE.
     if (limitedNow) { state = 'warning'; label = '稍后重试'; }
     if (authBlocked) { state = 'warning'; label = '需要重新识别'; }
     statusLabel.textContent = label; host.dataset.state = state;
-    const origins=new Set(fields.map(f=>f.source==='page'?'page':f.receivedBy||'api'));
-    const sourceLabel=origins.size!==1?'最早数据接收于 ':origins.has('page')?'页面内容读取于 ':origins.has('website')?'网站响应于 ':origins.has('script')?'脚本响应于 ':'接口数据接收于 ';
-    let text = run ? '正在同步额度…' : at ? sourceLabel + ago(at) : '打开额度页，即可开始识别';
+    let text = run ? '正在主动请求额度…' : lastScriptRequestAt ? '上次主动请求 '+ago(lastScriptRequestAt) : fields.length ? '本页尚未主动请求' : '打开额度页，即可开始识别';
     if (!saved.autoRefresh) text += ' · 自动更新已暂停';
-    else if (at && replay) text += ' · 脚本间隔 '+intervalText();
-    if(at&&replay)text+=' · '+(lastScriptRequestAt?'上次主动请求 '+ago(lastScriptRequestAt):'本页尚未主动请求');
-    if(entries.some(e=>e.dom))text+=' · 含页面读取数据';
     if (stale) text = '部分数据已过期 · ' + text;
     if (errors.length) text = errors.length + ' 个接口异常（' + errors[0].error + '），其余接口独立刷新';
     if (notice) text = notice;
     if (limitedNow) text = '请求限流，' + Math.ceil((retryNotBefore - Date.now()) / 1000) + ' 秒后可重试';
     footerText.textContent = text;
-    const shortInterval=saved.refreshSeconds%60?Number((saved.refreshSeconds/60).toFixed(2))+'分':intervalText();
-    dockLabel.textContent=run?'同步中':!saved.autoRefresh?'已暂停':shortInterval;
+    dockLabel.textContent=run?'请求中':!saved.autoRefresh?'已暂停':lastScriptRequestAt?ago(lastScriptRequestAt):'未主动请求';
     dockLabel.parentElement.title=text;
   }
 
